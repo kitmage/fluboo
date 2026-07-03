@@ -26,7 +26,10 @@ The proxy:
 2. Requests Fluent's original Outlook bootstrap URL without following redirects.
 3. Reads the Microsoft authorization URL from Fluent's `Location` response header.
 4. Replaces `prompt=consent` with `prompt=select_account`.
-5. Redirects the browser to Microsoft.
+5. Stores Fluent Booking's original `state` value locally for the current WordPress user.
+6. Redirects the browser to Microsoft.
+
+If Fluent's shared proxy returns to WordPress without the original nested `state` query argument, the plugin restores that value before Fluent Booking's Outlook callback handler runs.
 
 During Fluent Booking's callback/token exchange, the plugin returns Fluent's original redirect URL so the OAuth `redirect_uri` remains consistent with the authorization code that Microsoft issued.
 
@@ -80,6 +83,7 @@ The proxy performs several checks before redirecting the browser:
 - Requires an authenticated WordPress user with the `read` capability by default.
 - Allows only the current site's `admin-ajax.php?action=fluent_booking_outlook_auth` callback URL.
 - Allows only `https://login.microsoftonline.com/.../oauth2/v2.0/authorize` as the final redirect target.
+- Temporarily stores the pending Fluent Booking `state` value for the current WordPress user for 15 minutes.
 
 If your Fluent Booking hosts use a different capability model, adjust access with the `fluent_booking_outlook_prompt_override_user_can_connect` filter or edit `fbopo_current_user_can_connect_outlook()` in the plugin file. Fluent Booking still performs its own calendar-level permission check during the OAuth callback.
 
@@ -88,6 +92,10 @@ If your Fluent Booking hosts use a different capability model, adjust access wit
 ### The button still goes to Fluent's server directly
 
 Confirm the plugin is loaded. If installed as an MU-plugin directory, WordPress will not automatically load nested plugin files. You need the bootstrap file shown in the installation instructions.
+
+### The callback screen only shows `0`
+
+Confirm this plugin is active during both the initial Outlook button click and the `admin-ajax.php?action=fluent_booking_outlook_auth` callback. The plugin stores the pending Fluent Booking `state` value before redirecting to Microsoft and restores it during the callback if Fluent's proxy omits it.
 
 ### The connection fails during callback
 

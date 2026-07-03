@@ -12,6 +12,7 @@ defined('ABSPATH') || exit;
 
 const FBOPO_FLUENT_OUTLOOK_REDIRECT_URL = 'https://fluentbooking.com/wp-json/fluent-api/outlook/';
 const FBOPO_PROXY_ACTION = 'fbopo_outlook_prompt_proxy';
+const FBOPO_PENDING_STATE_TRANSIENT_PREFIX = 'fbopo_pending_outlook_state_';
 
 /**
  * Replace Fluent Booking's initial Outlook OAuth bootstrap URL with a local proxy.
@@ -29,6 +30,7 @@ add_filter('fluent_booking/outlook_app_redirect_url', function ($url) {
 });
 
 add_action('admin_post_' . FBOPO_PROXY_ACTION, 'fbopo_handle_outlook_prompt_proxy');
+add_action('wp_ajax_fluent_booking_outlook_auth', 'fbopo_restore_missing_outlook_state', 1);
 
 /**
  * Determine whether Fluent Booking is handling its Outlook OAuth callback.
@@ -68,6 +70,8 @@ function fbopo_handle_outlook_prompt_proxy()
         wp_die(esc_html__('Invalid Outlook callback URL.', 'fluent-booking-outlook-prompt-override'), 400);
     }
 
+    fbopo_remember_outlook_state($redirectUri);
+
     $fluentUrl = add_query_arg([
         'client_id'    => $clientId,
         'redirect_uri' => $redirectUri,
@@ -97,6 +101,57 @@ function fbopo_handle_outlook_prompt_proxy()
 
     wp_redirect($location);
     exit;
+}
+
+
+/**
+ * Store Fluent Booking's calendar/user state before the browser leaves WordPress.
+ *
+ * Fluent's shared OAuth proxy can return to admin-ajax.php without the original
+ * nested state query argument. Saving it locally lets the early callback hook
+ * restore the value before Fluent Booking's callback handler runs.
+ */
+function fbopo_remember_outlook_state($redirectUri)
+{
+    $parts = wp_parse_url($redirectUri);
+
+    if (empty($parts['query'])) {
+        return;
+    }
+
+    parse_str($parts['query'], $queryArgs);
+
+    if (empty($queryArgs['state'])) {
+        return;
+    }
+
+    set_transient(
+        FBOPO_PENDING_STATE_TRANSIENT_PREFIX . get_current_user_id(),
+        sanitize_text_field(wp_unslash($queryArgs['state'])),
+        15 * MINUTE_IN_SECONDS
+    );
+}
+
+/**
+ * Restore the missing Fluent Booking state before its Outlook callback executes.
+ */
+function fbopo_restore_missing_outlook_state()
+{
+    if (!is_user_logged_in() || empty($_GET['code']) || !empty($_GET['state'])) { // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+        return;
+    }
+
+    $transientKey = FBOPO_PENDING_STATE_TRANSIENT_PREFIX . get_current_user_id();
+    $state = get_transient($transientKey);
+
+    if (!$state) {
+        return;
+    }
+
+    delete_transient($transientKey);
+
+    $_GET['state'] = $state;
+    $_REQUEST['state'] = $state;
 }
 
 /**
