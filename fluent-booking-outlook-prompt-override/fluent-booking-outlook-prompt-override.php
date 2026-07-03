@@ -101,10 +101,16 @@ function fbopo_handle_outlook_prompt_proxy()
 
 /**
  * Check whether the current user should be allowed to start this OAuth flow.
+ *
+ * Fluent Booking performs the calendar-level permission check during the OAuth
+ * callback. Keep this proxy permissive enough for non-editor hosts while still
+ * requiring an authenticated WordPress user by default.
  */
 function fbopo_current_user_can_connect_outlook()
 {
-    return current_user_can('manage_options') || current_user_can('edit_posts');
+    $canConnect = current_user_can('read');
+
+    return (bool) apply_filters('fluent_booking_outlook_prompt_override_user_can_connect', $canConnect);
 }
 
 /**

@@ -77,11 +77,11 @@ Then activate **Fluent Booking Outlook Prompt Override** from **Plugins** in Wor
 The proxy performs several checks before redirecting the browser:
 
 - Requires a logged-in user.
-- Requires either `manage_options` or `edit_posts` capability.
+- Requires an authenticated WordPress user with the `read` capability by default.
 - Allows only the current site's `admin-ajax.php?action=fluent_booking_outlook_auth` callback URL.
 - Allows only `https://login.microsoftonline.com/.../oauth2/v2.0/authorize` as the final redirect target.
 
-If your Fluent Booking hosts use a different capability model, adjust `fbopo_current_user_can_connect_outlook()` in the plugin file.
+If your Fluent Booking hosts use a different capability model, adjust access with the `fluent_booking_outlook_prompt_override_user_can_connect` filter or edit `fbopo_current_user_can_connect_outlook()` in the plugin file. Fluent Booking still performs its own calendar-level permission check during the OAuth callback.
 
 ## Troubleshooting
 
